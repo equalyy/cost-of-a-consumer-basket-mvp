@@ -1,0 +1,95 @@
+{% extends 'base.html' %}
+{% block title %}Динамика{% endblock %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">РАСХОДЫ В ПЕРСПЕКТИВЕ</div>
+            <h1>
+                Динамика стоимости<span class="purple">.</span>
+            </h1>
+            <p>Как меняется цена одной и той же корзины с течением времени.</p>
+        </div>
+    </div>
+    {% if not basket %}
+        <div class="empty panel">
+            {{ icon("trend") }}
+            <h2>Для начала нужна корзина</h2>
+            <p>Создайте состав и внесите цены по датам.</p>
+            <a class="btn btn-primary" href="{{ url_for('baskets') }}">Создать корзину</a>
+        </div>
+    {% else %}
+        {{ filters(baskets,basket,start,end) }}
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Стоимость во времени</h2>
+                    <p>{{ basket.name }} · {{ start|day }} — {{ end|day }}</p>
+                </div>
+                <span class="unit-tag">₽ / корзина</span>
+            </div>
+            <div class="chart-container line-chart">
+                <canvas id="dynamics-chart"
+                        role="img"
+                        aria-label="Линейный график стоимости корзины по датам"></canvas>
+            </div>
+            <div class="panel-footnote">
+                {{ icon("info") }} На всём периоде используются текущие состав и количества. При пропусках показана сумма известных позиций. Подсказка точки перечисляет отсутствующие цены.
+            </div>
+        </section>
+        <section class="panel detail-panel">
+            <div class="panel-heading">
+                <h2>Изменения по магазинам</h2>
+            </div>
+            <div class="table-scroll">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>Магазин</th>
+                            <th class="number">{{ start|day }}</th>
+                            <th class="number">{{ end|day }}</th>
+                            <th class="number">Разница, ₽</th>
+                            <th class="number">Изменение, %</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        {% for row in rows %}
+                            <tr>
+                                <td>
+                                    <strong>{{ row.name }}</strong>
+                                </td>
+                                <td class="number">
+                                    {{ row.old|money }} ₽
+                                    {% if row.old_missing %}
+                                        <small class="partial-total">Известные позиции · нет цен {{ row.old_missing|length }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="number">
+                                    {{ row.total|money if row.known_count else '—' }} ₽
+                                    {% if row.missing %}
+                                        <small class="partial-total">Известные позиции · нет цен {{ row.missing|length }}</small>
+                                    {% endif %}
+                                </td>
+                                <td class="number">{{ row.delta.amount|signed if row.delta else '—' }}</td>
+                                <td class="number">
+                                    <span class="{{ 'warning' if row.delta and row.delta.amount > 0 else 'good' }}">{{ row.delta.percent|signed if row.delta else '—' }}
+                                        {% if row.delta %}
+                                            %
+                                        {% endif %}
+                                    </span>
+                                </td>
+                            </tr>
+                        {% else %}
+                            <tr>
+                                <td colspan="5" class="empty">Добавьте магазины и цены для анализа.</td>
+                            </tr>
+                        {% endfor %}
+                    </tbody>
+                </table>
+            </div>
+            <div class="panel-footnote">
+                {{ icon("clock") }} Изменения рассчитываются только при полной корзине на обе даты. Нулевая база исключает расчёт процентов.
+            </div>
+        </section>
+        <script id="chart-data" type="application/json">{{ chart|tojson }}</script>
+    {% endif %}
+{% endblock %}

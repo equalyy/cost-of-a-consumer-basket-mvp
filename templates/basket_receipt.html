@@ -1,0 +1,133 @@
+{% from 'base.html' import icon, token with context %}
+<div class="basket-receipt"
+     id="basket-receipt"
+     data-receipt-url="{{ url_for('basket_receipt',basket_id=basket.id) }}">
+    <form method="get"
+          action="{{ url_for('baskets') }}"
+          id="receipt-filter-form"
+          class="receipt-controls">
+        <input type="hidden" name="basket" value="{{ basket.id }}">
+        <label>
+            Цены на дату
+            <input type="date" name="date" value="{{ receipt_date }}" required>
+        </label>
+        <button type="submit" class="btn btn-secondary receipt-apply">Показать цены</button>
+        <p class="form-help">
+            Выберите до трёх разных магазинов в заголовках столбцов. Выделены минимальные цены по каждой позиции.
+        </p>
+    </form>
+    <p class="receipt-status form-help" role="status" aria-live="polite"></p>
+    {% if receipt_errors %}
+        <div class="field-error receipt-errors" role="alert">
+            {% for message in receipt_errors %}<p>{{ message }}</p>{% endfor %}
+        </div>
+    {% endif %}
+    <div class="table-scroll">
+        <table class="receipt-table">
+            <thead>
+                <tr>
+                    <th>Продукт</th>
+                    <th>Количество</th>
+                    {% for slot in slots %}
+                        <th class="receipt-store-heading">
+                            <label>
+                                <span>Магазин {{ slot.number }}</span>
+                                <select name="shop{{ slot.number }}"
+                                        form="receipt-filter-form"
+                                        aria-label="Магазин {{ slot.number }}">
+                                    <option value="">Не выбран</option>
+                                    {% for store in stores %}
+                                        <option value="{{ store.id }}"
+                                                {{ 'selected' if slot.quote and slot.quote.id == store.id }}>{{ store.name }}
+                                        </option>
+                                    {% endfor %}
+                                </select>
+                            </label>
+                        </th>
+                    {% endfor %}
+                    <th aria-label="Действия"></th>
+                </tr>
+            </thead>
+            <tbody>
+                {% for row in receipt_rows %}
+                    <tr data-product-id="{{ row.item.product_id }}">
+                        <td class="receipt-product">
+                            <strong>{{ row.item.name }}</strong>
+                        </td>
+                        <td>{{ row.item.quantity|qty }} {{ row.item.unit }}</td>
+                        {% for cell in row.cells %}
+                            <td class="receipt-cell {{ 'receipt-minimum' if cell and cell.price is not none and cell.price == row.minimum }}"
+                                data-quote-value>
+                                {% if cell and cell.price is not none %}
+                                    <span class="receipt-equation">{{ row.item.quantity|qty }} × {{ cell.price|money }} ₽</span>
+                                    <small class="receipt-unit-price" title="Цена от {{ cell.price_date|day }}">Цена за 1 {{ row.item.unit }}</small>
+                                    <strong class="receipt-line-total">{{ cell.cost|money }} ₽</strong>
+                                {% elif cell %}
+                                    <span class="missing-price">Нет цены</span>
+                                {% else %}
+                                    <span class="muted">—</span>
+                                {% endif %}
+                            </td>
+                        {% endfor %}
+                        <td class="number">
+                            <form method="post" data-confirm="Удалить {{ row.item.name }} из корзины?">
+                                {{ token() }}
+                                <input type="hidden" name="action" value="remove">
+                                <input type="hidden" name="basket_id" value="{{ basket.id }}">
+                                <input type="hidden" name="item_id" value="{{ row.item.id }}">
+                                <button class="icon-button" aria-label="Удалить {{ row.item.name }}">{{ icon("trash") }}</button>
+                            </form>
+                        </td>
+                    </tr>
+                {% else %}
+                    <tr>
+                        <td colspan="6" class="muted">В корзине пока нет продуктов. Добавьте первую позицию ниже.</td>
+                    </tr>
+                {% endfor %}
+            </tbody>
+            <tfoot>
+                <tr>
+                    <td colspan="2">Стоимость корзины</td>
+                    {% for slot in slots %}
+                        <td class="receipt-store-total" data-quote-value>
+                            {% if slot.quote %}
+                                {% if slot.quote.known_count or not items %}
+                                    <strong>{{ slot.quote.total|money }} ₽</strong>
+                                {% else %}
+                                    <strong>—</strong>
+                                {% endif %}
+                                {% if not items %}
+                                    <small>Пустая корзина</small>
+                                {% elif slot.quote.complete %}
+                                    <small class="good">Полная корзина</small>
+                                {% else %}
+                                    <small class="warning">Известные позиции · {{ slot.quote.known_count }} из {{ items|length }}</small><small class="receipt-missing" title="{{ slot.quote.missing|join(', ') }}">Нет цен · {{ slot.quote.missing|length }}</small>
+                                {% endif %}
+                            {% else %}
+                                <strong class="muted">—</strong>
+                            {% endif %}
+                        </td>
+                    {% endfor %}
+                    <td></td>
+                </tr>
+            </tfoot>
+        </table>
+    </div>
+    {% if has_selected_stores and items %}
+        <div class="receipt-mixed" data-quote-value>
+            <div>
+                <strong>{{ 'Корзина по минимальным ценам' if mixed.complete else 'Минимальная сумма известных позиций' }}</strong>
+                <p>Для каждого продукта берётся минимальная цена среди выбранных магазинов.</p>
+                {% if mixed.missing %}
+                    <p class="warning">Нет цен ни в одном выбранном магазине · {{ mixed.missing|join(", ") }}</p>
+                {% endif %}
+            </div>
+            <span class="receipt-mixed-total">{{ mixed.total|money if mixed.known_count else '—' }}
+                {% if mixed.known_count %}₽{% endif %}
+            </span>
+        </div>
+    {% endif %}
+    <div class="panel-footnote">
+        {{ icon("clock") }} Последняя цена не позднее {{ receipt_date|day }}. Неполный итог включает позиции с известными ценами.
+    </div>
+</div>

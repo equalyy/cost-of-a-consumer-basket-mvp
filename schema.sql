@@ -1,0 +1,18 @@
+PRAGMA foreign_keys = ON;
+CREATE TABLE IF NOT EXISTS products (
+ id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE, unit TEXT NOT NULL CHECK(unit IN ('кг','л','шт.'))
+);
+CREATE TABLE IF NOT EXISTS stores (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS baskets (id INTEGER PRIMARY KEY, name TEXT NOT NULL UNIQUE);
+CREATE TABLE IF NOT EXISTS items (
+ id INTEGER PRIMARY KEY, basket_id INTEGER NOT NULL REFERENCES baskets(id) ON DELETE CASCADE,
+ product_id INTEGER NOT NULL REFERENCES products(id), quantity TEXT NOT NULL,
+ UNIQUE(basket_id, product_id)
+);
+CREATE TABLE IF NOT EXISTS prices (
+ id INTEGER PRIMARY KEY, store_id INTEGER NOT NULL REFERENCES stores(id),
+ product_id INTEGER NOT NULL REFERENCES products(id), date TEXT NOT NULL,
+ cents INTEGER NOT NULL CHECK(cents > 0), UNIQUE(store_id, product_id, date)
+);
+CREATE INDEX IF NOT EXISTS price_lookup ON prices(store_id, product_id, date);
+CREATE TABLE IF NOT EXISTS metadata (key TEXT PRIMARY KEY, value TEXT NOT NULL);

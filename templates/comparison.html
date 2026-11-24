@@ -1,0 +1,190 @@
+{% extends 'base.html' %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">КАЖДАЯ ПОКУПКА — ОСОЗНАННО</div>
+            <h1>
+                Сравнение стоимости<span class="purple">.</span>
+            </h1>
+            <p>Одна корзина, разные магазины. Найдите свой выгодный вариант.</p>
+        </div>
+        <a class="btn btn-primary"
+           href="{{ url_for('baskets',basket=basket.id if basket else none) }}">{{ icon("basket") }} Изменить корзину</a>
+    </div>
+    {% if not basket %}
+        <div class="empty panel">
+            {{ icon("basket") }}
+            <h2>Начните со своей корзины</h2>
+            <p>Добавьте продукты и цены, чтобы увидеть сравнение магазинов.</p>
+            <a class="btn btn-primary" href="{{ url_for('baskets') }}">Создать корзину {{ icon("plus") }}</a>
+        </div>
+    {% else %}
+        {{ filters(baskets,basket,start,end) }}
+        <section class="stats-grid" aria-label="Итоги сравнения">
+            <article class="stat-card best-card">
+                <div class="stat-label">
+                    <span>Самая выгодная корзина</span><span class="stat-icon">{{ icon("basket") }}</span>
+                </div>
+                <div class="stat-value">
+                    {{ best.total|money if best else '—' }} <small>₽</small>
+                </div>
+                <div class="stat-bottom">
+                    {% if best %}
+                        <span class="white-dot"></span>{{ best.name }}<span class="light-badge">Полная корзина</span>
+                    {% else %}
+                        Пока нет полных корзин
+                    {% endif %}
+                </div>
+                <div class="card-art"></div>
+            </article>
+            <article class="stat-card">
+                <div class="stat-label">
+                    <span>Возможная экономия</span><span class="stat-icon green">{{ icon("wallet") }}</span>
+                </div>
+                <div class="stat-value">
+                    {{ saving|money }} <small>₽</small>
+                </div>
+                <div class="stat-bottom muted">
+                    {% if full|length > 1 %}
+                        Между дорогой и выгодной корзиной
+                    {% else %}
+                        Нужны цены двух полных корзин
+                    {% endif %}
+                </div>
+            </article>
+            <article class="stat-card">
+                <div class="stat-label">
+                    <span>Изменение за период</span><span class="stat-icon lavender">{{ icon("trend") }}</span>
+                </div>
+                <div class="stat-value">
+                    {{ delta.percent|signed if delta else '—' }}<small>%</small>
+                    {% if delta %}
+                        <span class="change-badge {{ 'up' if delta.amount > 0 else 'good' }}">{{ delta.amount|signed }} ₽</span>
+                    {% endif %}
+                </div>
+                <div class="stat-bottom muted">{{ start|day }} — {{ end|day }} · минимум по магазинам</div>
+            </article>
+        </section>
+        <div class="analysis-grid">
+            <section class="panel comparison-chart">
+                <div class="panel-heading">
+                    <div>
+                        <h2>Стоимость по магазинам</h2>
+                        <p>
+                            {{ basket.name }} <span class="middot">·</span> {{ end|day }}
+                        </p>
+                    </div>
+                    <span class="unit-tag">₽ / корзина</span>
+                </div>
+                <div class="chart-container">
+                    <canvas id="comparison-chart"
+                            aria-label="Столбчатый график стоимости по магазинам"
+                            role="img"></canvas>
+                </div>
+                <div class="chart-legend">
+                    <span><i class="legend-dot purple-bg"></i>Полная корзина</span><span><i class="legend-dot pale-bg"></i>Неполная корзина</span>
+                </div>
+            </section>
+            <section class="panel store-panel">
+                <div class="panel-heading">
+                    <h2>Рейтинг магазинов</h2>
+                    <span class="count-tag">{{ full|length }} из {{ rows|length }}</span>
+                </div>
+                <p class="section-caption">По стоимости полной корзины</p>
+                {% for row in rows|sort(attribute='total')|sort(attribute='complete',reverse=true) %}
+                    <div class="store-row {{ 'winner' if best and row.id == best.id }}">
+                        <span class="store-avatar color-{{ loop.index }}">{{ icon("store") }}</span>
+                        <div class="store-info">
+                            <strong>{{ row.name }}</strong><small>
+                                {% if row.complete %}
+                                    {{ row.lines|length }} из {{ row.lines|length }} продуктов
+                                {% else %}
+                                    Нет цен · {{ row.missing|length }}
+                                {% endif %}
+                            </small>
+                        </div>
+                        <div class="store-total">
+                            <strong>{{ row.total|money }} ₽</strong>
+                            {% if best and row.id == best.id %}
+                                <small class="good">{{ icon("check") }} Выгоднее всего</small>
+                            {% elif not row.complete %}
+                                <small class="warning">Неполная</small>
+                            {% elif best %}
+                                <small class="muted">+{{ (row.total-best.total)|money }} ₽</small>
+                            {% endif %}
+                        </div>
+                    </div>
+                {% endfor %}
+                <div class="info-note">
+                    {{ icon("info") }}<span>Магазины с пропущенными ценами исключены из рейтинга.</span>
+                </div>
+            </section>
+        </div>
+        <section class="panel detail-panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Что внутри корзины</h2>
+                    <p>Стоимость продуктов с учётом выбранного количества</p>
+                </div>
+                <a class="text-link" href="{{ url_for('baskets',basket=basket.id) }}">Редактировать {{ icon("arrow") }}</a>
+            </div>
+            {% if rows and rows[0].lines %}
+                <div class="table-scroll">
+                    <table>
+                        <thead>
+                            <tr>
+                                <th>Продукт</th>
+                                <th class="quantity-cell">Количество</th>
+                                {% for row in rows %}
+                                    <th class="number">
+                                        {{ row.name }}
+                                        {% if best and row.id == best.id %}<span class="table-best">ВЫГОДНЕЕ</span>{% endif %}
+                                    </th>
+                                {% endfor %}
+                            </tr>
+                        </thead>
+                        <tbody>
+                            {% for item in rows[0].lines %}
+                                <tr>
+                                    <td>
+                                        <span class="product-symbol">{{ ['◒','◉','▧','◌','◇','◈','●','▨','▥','◒'][loop.index0 % 10] }}</span><strong>{{ item.name }}</strong>
+                                    </td>
+                                    <td class="muted">{{ item.quantity|qty }} {{ item.unit }}</td>
+                                    {% set idx = loop.index0 %}
+                                    {% for row in rows %}
+                                        <td class="number {{ 'best-column' if best and row.id == best.id }}">
+                                            {% if row.lines[idx].cost is not none %}
+                                                {{ row.lines[idx].cost|money }} <span class="currency">₽</span>
+                                            {% else %}
+                                                <span class="missing-price">Нет цены</span>
+                                            {% endif %}
+                                        </td>
+                                    {% endfor %}
+                                </tr>
+                            {% endfor %}
+                        </tbody>
+                        <tfoot>
+                            <tr>
+                                <td colspan="2">Итого за корзину</td>
+                                {% for row in rows %}
+                                    <td class="number {{ 'purple' if best and row.id == best.id }}">
+                                        {{ row.total|money }} ₽
+                                        {% if not row.complete %}<small>Известные позиции</small>{% endif %}
+                                    </td>
+                                {% endfor %}
+                            </tr>
+                        </tfoot>
+                    </table>
+                </div>
+            {% else %}
+                <div class="empty compact">
+                    <p>Добавьте продукты в корзину и создайте магазины для сравнения.</p>
+                </div>
+            {% endif %}
+            <div class="panel-footnote">
+                {{ icon("clock") }} Для расчёта используется последняя цена не позднее {{ end|day }}. Все суммы в рублях.
+            </div>
+        </section>
+        <script id="chart-data" type="application/json">{{ chart|tojson }}</script>
+    {% endif %}
+{% endblock %}

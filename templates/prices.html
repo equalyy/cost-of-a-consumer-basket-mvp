@@ -1,0 +1,227 @@
+{% extends 'base.html' %}
+{% block title %}Магазины и цены{% endblock %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">ДАННЫЕ ДЛЯ ВАШИХ РАСЧЁТОВ</div>
+            <h1>
+                Магазины и цены<span class="purple">.</span>
+            </h1>
+            <p>Сохраняйте цены за единицу продукта и наблюдайте за изменениями.</p>
+        </div>
+    </div>
+    <div class="price-forms">
+        <section class="panel">
+            <div class="panel-heading">
+                <h2>Внести цену</h2>
+                <span class="stat-icon lavender">{{ icon("plus") }}</span>
+            </div>
+            <form method="post" class="stack-form">
+                {{ token() }}
+                <input type="hidden" name="action" value="price">
+                <div class="form-row">
+                    <label>
+                        Магазин <span class="required">*</span>
+                        <select name="store_id" required>
+                            <option value="">Выберите магазин</option>
+                            {% for s in stores %}
+                                <option value="{{ s.id }}"
+                                        {{ 'selected' if request.form.get("store_id") == s.id|string }}>{{ s.name }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                    <label>
+                        Продукт <span class="required">*</span>
+                        <select name="product_id" required>
+                            <option value="">Выберите продукт</option>
+                            {% for p in products %}
+                                <option value="{{ p.id }}"
+                                        {{ 'selected' if request.form.get("product_id") == p.id|string or selected_product == p.id }}>{{ p.name }} · {{ p.unit }}
+                                </option>
+                            {% endfor %}
+                        </select>
+                    </label>
+                </div>
+                <div class="form-row">
+                    <label>
+                        Дата <span class="required">*</span>
+                        <input name="date"
+                               type="date"
+                               value="{{ request.form.get('date',today) }}"
+                               required>
+                    </label>
+                    <label>
+                        Цена за единицу, ₽ <span class="required">*</span>
+                        <input name="price"
+                               type="number"
+                               min="0.01"
+                               max="1000000"
+                               step="0.01"
+                               placeholder="0,00"
+                               value="{{ request.form.get('price', '') }}"
+                               required>
+                    </label>
+                </div>
+                {{ error("price") }}
+                <p class="form-help">Цена для того же магазина, продукта и даты будет обновлена.</p>
+                <button class="btn btn-primary"
+                        {% if not stores or not products %}disabled{% endif %}>
+                    {{ icon("check") }} Сохранить цену
+                </button>
+                {% if not stores or not products %}
+                    <p class="form-help">Сначала добавьте магазин и продукт в формах справа.</p>
+                {% endif %}
+            </form>
+        </section>
+        <div class="catalog-forms">
+            <section class="panel">
+                <form method="post" class="stack-form">
+                    {{ token() }}
+                    <input type="hidden" name="action" value="store">
+                    <h3>Новый магазин</h3>
+                    <label>
+                        Название <span class="required">*</span>
+                        <input name="name"
+                               required
+                               maxlength="80"
+                               placeholder="Название магазина"
+                               value="{{ request.form.get('name', '') if request.form.get('action') == 'store' else '' }}">
+                    </label>
+                    {{ error("store") }}
+                    <button class="btn btn-secondary">{{ icon("plus") }} Добавить магазин</button>
+                    <p class="form-help">
+                        {% for s in stores %}{{ s.name }}{{ ' · ' if not loop.last }}{% endfor %}
+                    </p>
+                </form>
+            </section>
+            <section class="panel">
+                <form method="post" class="stack-form">
+                    {{ token() }}
+                    <input type="hidden" name="action" value="product">
+                    <h3>Новый продукт</h3>
+                    <div class="form-row">
+                        <label>
+                            Название <span class="required">*</span>
+                            <input name="name"
+                                   required
+                                   maxlength="80"
+                                   placeholder="Название продукта"
+                                   value="{{ request.form.get('name', '') if request.form.get('action') == 'product' else '' }}">
+                        </label>
+                        <label class="unit-field">
+                            Единица <span class="required">*</span>
+                            <select name="unit">
+                                {% for unit in ['кг', 'л', 'шт.'] %}
+                                    <option value="{{ unit }}"
+                                            {{ 'selected' if request.form.get('unit', 'кг') == unit }}>{{ unit }}
+                                    </option>
+                                {% endfor %}
+                            </select>
+                        </label>
+                    </div>
+                    {{ error("product") }}
+                    <button class="btn btn-secondary">{{ icon("plus") }} Добавить продукт</button>
+                </form>
+            </section>
+        </div>
+    </div>
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>Справочник продуктов · {{ products|length }}</h2>
+                <p>Все созданные продукты, включая продукты без цен и вне корзин</p>
+            </div>
+        </div>
+        <div class="table-scroll">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Продукт</th>
+                        <th>Единица измерения</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for product in products %}
+                        <tr>
+                            <td>
+                                <strong>{{ product.name }}</strong>
+                            </td>
+                            <td>{{ product.unit }}</td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="2" class="muted">Продуктов пока нет. Создайте первый продукт в форме выше.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>История цен</h2>
+                <p>Записей с выбранными фильтрами — {{ records|length }}</p>
+            </div>
+            <form method="get" class="inline-filters">
+                <select name="store" aria-label="Фильтр по магазину">
+                    <option value="">Все магазины</option>
+                    {% for s in stores %}
+                        <option value="{{ s.id }}" {{ 'selected' if store_id == s.id }}>{{ s.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <select name="product" aria-label="Фильтр по продукту">
+                    <option value="">Все продукты</option>
+                    {% for p in products %}
+                        <option value="{{ p.id }}" {{ 'selected' if product_id == p.id }}>{{ p.name }}
+                        </option>
+                    {% endfor %}
+                </select>
+                <button class="btn btn-secondary">Показать</button>
+            </form>
+        </div>
+        <div class="table-scroll history-table">
+            <table>
+                <thead>
+                    <tr>
+                        <th>Дата</th>
+                        <th>Продукт</th>
+                        <th>Магазин</th>
+                        <th class="number">Цена за единицу</th>
+                        <th></th>
+                    </tr>
+                </thead>
+                <tbody>
+                    {% for r in records %}
+                        <tr>
+                            <td class="muted">{{ r.date|day }}</td>
+                            <td>
+                                <strong>{{ r.product }}</strong>
+                            </td>
+                            <td>{{ r.store }}</td>
+                            <td class="number">{{ r.cents|cents }} ₽ / {{ r.unit }}</td>
+                            <td>
+                                <form method="post"
+                                      data-confirm="Удалить цену {{ r.product }} в магазине {{ r.store }} за {{ r.date|day }}?">
+                                    {{ token() }}
+                                    <input type="hidden" name="action" value="delete">
+                                    <input type="hidden" name="price_id" value="{{ r.id }}">
+                                    <button class="icon-button"
+                                            aria-label="Удалить цену {{ r.product }} за {{ r.date|day }}">
+                                        {{ icon("trash") }}
+                                    </button>
+                                </form>
+                            </td>
+                        </tr>
+                    {% else %}
+                        <tr>
+                            <td colspan="5" class="empty">Цены пока не внесены или не найдены по выбранным фильтрам.</td>
+                        </tr>
+                    {% endfor %}
+                </tbody>
+            </table>
+        </div>
+    </section>
+{% endblock %}

@@ -1,0 +1,159 @@
+{% extends 'base.html' %}
+{% block title %}Перенос данных{% endblock %}
+{% block content %}
+    <div class="page-heading">
+        <div>
+            <div class="eyebrow">ВАШИ ДАННЫЕ С ВАМИ</div>
+            <h1>
+                Перенос данных<span class="purple">.</span>
+            </h1>
+            <p>Сохраните файл на компьютере или загрузите данные из CSV, Excel и JSON.</p>
+        </div>
+    </div>
+    <div class="transfer-summary">
+        {% for key,label in [('products','Продуктов'),('stores','Магазинов'),('baskets','Корзин'),('items','Позиций'),('prices','Цен')] %}
+            <div>
+                <strong>{{ counts[key] }}</strong><span>{{ label }}</span>
+            </div>
+        {% endfor %}
+    </div>
+    <div class="manage-grid transfer-grid">
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Экспорт на компьютер</h2>
+                    <p>Полная копия продуктов, магазинов, корзин, состава и всех цен</p>
+                </div>
+                {{ icon("arrow") }}
+            </div>
+            <div class="stack-form">
+                <p class="form-help">
+                    Каждая кнопка создаёт новый файл. Для переноса на другой компьютер скачайте его здесь, затем импортируйте в приложении на другом компьютере. Экспорт включает все записи, независимо от фильтров на других страницах.
+                </p>
+                <div class="download-buttons">
+                    {% for format,label in [('csv','CSV'),('xlsx','Excel · XLSX'),('json','JSON')] %}
+                        <a class="btn btn-primary"
+                           href="{{ url_for('download_data',file_format=format) }}">Скачать {{ label }}</a>
+                    {% endfor %}
+                </div>
+                <div class="info-note">
+                    {{ icon("info") }}<span>JSON удобен для резервной копии. XLSX содержит пять листов. CSV хранит все типы записей в одном файле с разделителем «точка с запятой».</span>
+                </div>
+            </div>
+        </section>
+        <section class="panel">
+            <div class="panel-heading">
+                <div>
+                    <h2>Импорт из файла</h2>
+                    <p>CSV, XLSX или JSON · до 10 МБ и 50 000 записей</p>
+                </div>
+                {{ icon("plus") }}
+            </div>
+            <form method="post" enctype="multipart/form-data" class="stack-form">
+                {{ token() }}
+                <label>
+                    Файл данных <span class="required">*</span>
+                    <input type="file" name="file" accept=".csv,.xlsx,.json" required>
+                </label>
+                <label>
+                    При совпадении данных
+                    <select name="mode">
+                        <option value="keep" {{ 'selected' if mode|default("keep") == 'keep' }}>Сохранить существующие количества и цены
+                        </option>
+                        <option value="update" {{ 'selected' if mode|default("keep") == 'update' }}>Обновить количества и цены значениями из файла
+                        </option>
+                    </select>
+                </label>
+                <p class="form-help">
+                    Названия связываются с существующими справочниками, ID из файла пересчитываются автоматически. Новые записи добавляются. Корзины и цены, отсутствующие в файле, сохраняются. Импорт применяется целиком после проверки файла.
+                </p>
+                {% if errors %}
+                    <div class="field-error" role="alert">
+                        <strong>Импорт отменён. Данные сохранены.</strong>
+                        <ul>
+                            {% for message in errors %}<li>{{ message }}</li>{% endfor %}
+                        </ul>
+                    </div>
+                {% endif %}
+                <button class="btn btn-primary">{{ icon("plus") }} Импортировать данные</button>
+            </form>
+        </section>
+    </div>
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>Готовые данные для проверки графиков</h2>
+                <p>10 продуктов · 3 магазина · 5 дат цен · один неполный магазин. Все данные вымышленные.</p>
+            </div>
+        </div>
+        <div class="stack-form">
+            <p class="form-help">
+                Скачайте файл и импортируйте его в форме выше. Для сравнения и динамики выберите «Корзина для графиков», период с 01.07.2026 по 01.11.2026. Линии растут и снижаются, самый выгодный магазин меняется по датам. Итог «Лавки» на 01.11.2026 — 1 819,00 ₽.
+            </p>
+            <div class="download-buttons">
+                {% for format in ['json','xlsx','csv'] %}
+                    <a class="btn btn-primary"
+                       href="{{ url_for('download_data',file_format=format,demo=1) }}">Данные для графиков · {{ format|upper }}</a>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    <section class="panel detail-panel">
+        <div class="panel-heading">
+            <div>
+                <h2>Шаблоны для заполнения</h2>
+                <p>В каждом примере — вымышленные данные. Итог корзины — 260,00 ₽.</p>
+            </div>
+        </div>
+        <div class="stack-form">
+            <p class="form-help">
+                Для собственных данных начните с шаблона или экспорта приложения. Сохраняйте названия столбцов и связи по ID. Для XLSX используйте обычные значения без формул, для CSV — UTF-8. Подробные примеры и правила описаны в README.
+            </p>
+            <div class="download-buttons">
+                {% for format in ['csv','xlsx','json'] %}
+                    <a class="btn btn-secondary"
+                       href="{{ url_for('download_data',file_format=format,template=1) }}">Шаблон {{ format|upper }}</a>
+                {% endfor %}
+            </div>
+        </div>
+    </section>
+    <section class="panel detail-panel reset-section">
+        <div class="panel-heading">
+            <div>
+                <h2>Очистка приложения</h2>
+                <p>Удаление всех записей из текущей базы SQLite</p>
+            </div>
+            <button type="button" id="reset-open" class="btn reset-open">{{ icon("trash") }} Очистить все данные</button>
+        </div>
+        <p class="form-help reset-description">
+            Будут удалены все продукты, магазины, корзины, их состав и история цен. Для переноса данных перед очисткой скачайте экспорт.
+        </p>
+    </section>
+    <dialog id="reset-dialog"
+            class="reset-dialog"
+            aria-labelledby="reset-title"
+            aria-describedby="reset-description">
+        <div class="reset-warning-icon">{{ icon("trash") }}</div>
+        <h2 id="reset-title">Удалить все данные?</h2>
+        <p id="reset-description">
+            Все продукты, магазины, корзины, количества и цены будут удалены из базы приложения. Отменить это действие после удаления можно только восстановлением из ранее сохранённой копии.
+        </p>
+        <p class="reset-file-note">Файлы экспорта и резервные копии хранятся отдельно.</p>
+        <p id="reset-status"
+           class="reset-status"
+           role="status"
+           aria-live="polite">Подготовка подтверждения…</p>
+        <form id="reset-form"
+              method="post"
+              action="{{ url_for('reset_data') }}"
+              data-prepare-url="{{ url_for('prepare_reset') }}">
+            {{ token() }}
+            <input type="hidden" name="confirmation" id="reset-confirmation" value="">
+            <div class="reset-actions">
+                <button type="button" id="reset-cancel" class="btn btn-secondary" autofocus>Отмена</button>
+                <button type="submit" id="reset-delete" class="btn reset-delete" disabled>Удалить (3)</button>
+            </div>
+        </form>
+    </dialog>
+    <script defer src="{{ url_for('static',filename='reset.js') }}"></script>
+{% endblock %}
